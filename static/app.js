@@ -289,29 +289,22 @@ class FrankStudio {
         docTitle.textContent = docName + '.md';
 
         try {
-            // DIRECT FROM GITHUB - NO API NEEDED
-            const githubUrls = {
-                'project': 'https://raw.githubusercontent.com/bhuman-ai/gesture_generator/main/target-docs/project.md',
-                'technical': 'https://raw.githubusercontent.com/bhuman-ai/gesture_generator/main/target-docs/technical.md',
-                'interface': 'https://raw.githubusercontent.com/bhuman-ai/gesture_generator/main/target-docs/interface.md'
-            };
-            
-            const url = githubUrls[docName] || githubUrls['project'];
-            const response = await fetch(url);
+            // Use API endpoint to fetch docs (handles CORS)
+            const response = await fetch(`/api/get-docs?doc=${docName}`);
             
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             
-            const content = await response.text();
+            const data = await response.json();
             
             // Display the content
-            docContent.textContent = content;
-            docLines.textContent = content.split('\n').length + ' lines';
+            docContent.textContent = data.content;
+            docLines.textContent = data.lines + ' lines';
             
         } catch (error) {
             console.error('Load doc error:', error);
-            docContent.textContent = `# ${docName}.md\n\nError loading from GitHub: ${error.message}`;
+            docContent.textContent = `# ${docName}.md\n\nError loading document: ${error.message}`;
         }
     }
 
