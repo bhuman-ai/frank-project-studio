@@ -329,22 +329,48 @@ def switch_project():
             
             if use_gh_cli:
                 # Use gh CLI which handles auth automatically in Codespace
+                # Extract owner/repo from URL
+                repo_path = github_url.replace('https://github.com/', '').replace('http://github.com/', '').replace('.git', '').rstrip('/')
+                print(f"Using gh CLI to clone {repo_path}")
+                
                 result = subprocess.run(
-                    ['gh', 'repo', 'clone', github_url.replace('https://github.com/', ''), clone_dir],
+                    ['gh', 'repo', 'clone', repo_path, clone_dir],
                     capture_output=True,
                     text=True,
                     timeout=60
                 )
+                
+                # If gh fails, try with GITHUB_TOKEN
+                if result.returncode != 0 and 'GITHUB_TOKEN' in os.environ:
+                    print(f"gh CLI failed, trying with GITHUB_TOKEN...")
+                    token = os.environ['GITHUB_TOKEN']
+                    auth_url = github_url.replace('https://', f'https://{token}@')
+                    
+                    result = subprocess.run(
+                        ['git', 'clone', auth_url, clone_dir],
+                        capture_output=True,
+                        text=True,
+                        timeout=60
+                    )
             else:
-                # Fallback to git clone
-                # In Codespace, this should use the GITHUB_TOKEN automatically
-                result = subprocess.run(
-                    ['git', 'clone', github_url, clone_dir],
-                    capture_output=True,
-                    text=True,
-                    timeout=60,
-                    env={**os.environ, 'GIT_TERMINAL_PROMPT': '0'}  # Don't prompt for password
-                )
+                # Fallback to git clone with token if available
+                if 'GITHUB_TOKEN' in os.environ:
+                    token = os.environ['GITHUB_TOKEN']
+                    auth_url = github_url.replace('https://', f'https://{token}@')
+                    result = subprocess.run(
+                        ['git', 'clone', auth_url, clone_dir],
+                        capture_output=True,
+                        text=True,
+                        timeout=60
+                    )
+                else:
+                    result = subprocess.run(
+                        ['git', 'clone', github_url, clone_dir],
+                        capture_output=True,
+                        text=True,
+                        timeout=60,
+                        env={**os.environ, 'GIT_TERMINAL_PROMPT': '0'}
+                    )
             
             if result.returncode != 0:
                 return jsonify({
