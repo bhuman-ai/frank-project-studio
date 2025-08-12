@@ -38,8 +38,14 @@ class handler(BaseHTTPRequestHandler):
                 req.add_header('Content-Type', 'application/json')
                 req.add_header('Accept', 'application/json')
                 
+                # Disable SSL verification for Codespace URLs (they use self-signed certs)
+                import ssl
+                ctx = ssl.create_default_context()
+                ctx.check_hostname = False
+                ctx.verify_mode = ssl.CERT_NONE
+                
                 # Make request (no timeout)
-                with urllib.request.urlopen(req) as response:
+                with urllib.request.urlopen(req, context=ctx) as response:
                     result = json.loads(response.read().decode('utf-8'))
                 
                 self.send_response(200)

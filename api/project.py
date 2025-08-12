@@ -1,7 +1,8 @@
 from http.server import BaseHTTPRequestHandler
 import json
 import os
-import requests
+import urllib.request
+import ssl
 
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
@@ -25,22 +26,23 @@ class handler(BaseHTTPRequestHandler):
         # Forward to backend
         if BACKEND_URL:
             try:
-                backend_response = requests.post(
-                    f"{BACKEND_URL}/api/project",
-                    json={'github_url': github_url},
-                    timeout=None  # NO TIMEOUT!
-                )
+                # Prepare request
+                backend_url = BACKEND_URL.rstrip('/')
+                url = f"{backend_url}/api/project"
+                data = json.dumps({'github_url': github_url}).encode('utf-8')
                 
-                # Check if response is JSON
-                try:
-                    result = backend_response.json()
-                except json.JSONDecodeError:
-                    # Backend returned non-JSON (probably HTML error page)
-                    result = {
-                        'success': False,
-                        'error': f'Backend error: {backend_response.status_code}',
-                        'details': backend_response.text[:200]
-                    }
+                req = urllib.request.Request(url, data=data)
+                req.add_header('Content-Type', 'application/json')
+                req.add_header('Accept', 'application/json')
+                
+                # Disable SSL verification for Codespace URLs (they use self-signed certs)
+                ctx = ssl.create_default_context()
+                ctx.check_hostname = False
+                ctx.verify_mode = ssl.CERT_NONE
+                
+                # Make request
+                with urllib.request.urlopen(req, context=ctx) as response:
+                    result = json.loads(response.read().decode('utf-8'))
                 
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json')
