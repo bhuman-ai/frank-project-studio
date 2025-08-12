@@ -324,46 +324,63 @@ def switch_project():
         if not os.path.exists(clone_dir):
             print(f"Cloning {github_url} to {clone_dir}...")
             
-            # Use GitHub CLI if available for better auth
-            use_gh_cli = subprocess.run(['which', 'gh'], capture_output=True).returncode == 0
+            # First, always try to get GitHub token
+            token = None
             
-            if use_gh_cli:
-                # Use gh CLI which handles auth automatically in Codespace
-                # Extract owner/repo from URL
-                repo_path = github_url.replace('https://github.com/', '').replace('http://github.com/', '').replace('.git', '').rstrip('/')
-                print(f"Using gh CLI to clone {repo_path}")
-                
-                result = subprocess.run(
-                    ['gh', 'repo', 'clone', repo_path, clone_dir],
-                    capture_output=True,
-                    text=True,
-                    timeout=60
-                )
-                
-                # If gh fails, try with GITHUB_TOKEN
-                if result.returncode != 0 and 'GITHUB_TOKEN' in os.environ:
-                    print(f"gh CLI failed, trying with GITHUB_TOKEN...")
-                    token = os.environ['GITHUB_TOKEN']
-                    auth_url = github_url.replace('https://', f'https://{token}@')
-                    
-                    result = subprocess.run(
-                        ['git', 'clone', auth_url, clone_dir],
+            # Try different ways to get token
+            if 'GITHUB_TOKEN' in os.environ:
+                token = os.environ['GITHUB_TOKEN']
+                print("Using GITHUB_TOKEN from environment")
+            else:
+                # Try to get token from gh CLI
+                try:
+                    gh_token_result = subprocess.run(
+                        ['gh', 'auth', 'token'],
                         capture_output=True,
                         text=True,
-                        timeout=60
+                        timeout=5
                     )
+                    if gh_token_result.returncode == 0 and gh_token_result.stdout.strip():
+                        token = gh_token_result.stdout.strip()
+                        print("Got token from gh CLI")
+                except:
+                    pass
+            
+            # Clone with the best available method
+            if token:
+                # Use token authentication
+                print(f"Cloning with GitHub token authentication...")
+                # For private repos, use token in URL
+                auth_url = github_url.replace('https://github.com/', f'https://{token}@github.com/')
+                
+                result = subprocess.run(
+                    ['git', 'clone', auth_url, clone_dir],
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                    env={**os.environ, 'GIT_ASKPASS': 'echo', 'GIT_TERMINAL_PROMPT': '0'}
+                )
+                
+                # Clean up token from error messages for security
+                if result.stderr:
+                    result.stderr = result.stderr.replace(token, '***')
             else:
-                # Fallback to git clone with token if available
-                if 'GITHUB_TOKEN' in os.environ:
-                    token = os.environ['GITHUB_TOKEN']
-                    auth_url = github_url.replace('https://', f'https://{token}@')
+                # Try gh CLI as fallback
+                use_gh_cli = subprocess.run(['which', 'gh'], capture_output=True).returncode == 0
+                
+                if use_gh_cli:
+                    print("No token found, trying gh CLI...")
+                    repo_path = github_url.replace('https://github.com/', '').replace('.git', '').rstrip('/')
+                    
                     result = subprocess.run(
-                        ['git', 'clone', auth_url, clone_dir],
+                        ['gh', 'repo', 'clone', repo_path, clone_dir],
                         capture_output=True,
                         text=True,
                         timeout=60
                     )
                 else:
+                    # Last resort - try without auth (only works for public repos)
+                    print("No authentication available, trying public clone...")
                     result = subprocess.run(
                         ['git', 'clone', github_url, clone_dir],
                         capture_output=True,
