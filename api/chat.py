@@ -1,7 +1,8 @@
 from http.server import BaseHTTPRequestHandler
 import json
 import os
-import requests
+import urllib.request
+import urllib.parse
 
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
@@ -26,29 +27,26 @@ class handler(BaseHTTPRequestHandler):
         # If backend is configured, forward request
         if BACKEND_URL:
             try:
-                backend_response = requests.post(
-                    f"{BACKEND_URL}/api/message",
-                    json={'message': message, 'context': context},
-                    timeout=None  # NO TIMEOUT - Let Claude think as long as needed!
-                )
+                # Ensure URL doesn't have trailing slash
+                backend_url = BACKEND_URL.rstrip('/')
                 
-                result = backend_response.json()
+                # Prepare request
+                url = f"{backend_url}/api/message"
+                data = json.dumps({'message': message, 'context': context}).encode('utf-8')
+                
+                req = urllib.request.Request(url, data=data)
+                req.add_header('Content-Type', 'application/json')
+                req.add_header('Accept', 'application/json')
+                
+                # Make request (no timeout)
+                with urllib.request.urlopen(req) as response:
+                    result = json.loads(response.read().decode('utf-8'))
                 
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json')
                 self.send_header('Access-Control-Allow-Origin', '*')
                 self.end_headers()
                 self.wfile.write(json.dumps(result).encode())
-                
-            except requests.Timeout:
-                self.send_response(200)
-                self.send_header('Content-type', 'application/json')
-                self.send_header('Access-Control-Allow-Origin', '*')
-                self.end_headers()
-                self.wfile.write(json.dumps({
-                    'response': "Frank's taking a moment to think... Try again.",
-                    'error': 'timeout'
-                }).encode())
                 
             except Exception as e:
                 import traceback
