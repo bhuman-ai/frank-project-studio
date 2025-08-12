@@ -276,13 +276,19 @@ def get_document(doc_name):
         doc_name = doc_name + '.md'
     
     doc_path = os.path.join(BLUEPRINT_DIR, doc_name)
+    print(f"Loading doc: {doc_path}")
+    print(f"BLUEPRINT_DIR: {BLUEPRINT_DIR}")
+    print(f"File exists: {os.path.exists(doc_path)}")
     
     if not os.path.exists(doc_path):
+        print(f"File not found, initializing docs...")
         init_blueprint_docs()
     
     try:
         with open(doc_path, 'r') as f:
             content = f.read()
+        
+        print(f"Successfully loaded {len(content)} characters from {doc_name}")
         
         return jsonify({
             'content': content,
@@ -290,6 +296,7 @@ def get_document(doc_name):
             'path': doc_path
         })
     except Exception as e:
+        print(f"Error loading doc: {e}")
         return jsonify({
             'error': str(e),
             'content': f"# {doc_name}\n\nError loading document.",
