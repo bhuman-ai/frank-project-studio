@@ -7,9 +7,12 @@ class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         BACKEND_URL = os.environ.get('CODESPACE_URL', '')
         
-        # Extract doc name from path
-        path_parts = self.path.split('/')
-        doc_name = path_parts[-1] if path_parts else 'project'
+        # Extract doc name from path - handle /api/docs/project format
+        if '/api/docs/' in self.path:
+            doc_name = self.path.split('/api/docs/')[-1]
+        else:
+            path_parts = self.path.split('/')
+            doc_name = path_parts[-1] if path_parts else 'project'
         
         # Ensure .md extension
         if not doc_name.endswith('.md'):
