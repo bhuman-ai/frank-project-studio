@@ -21,29 +21,29 @@ class handler(BaseHTTPRequestHandler):
         # Get doc name from query param or default to project
         doc_name = query_params.get('doc', ['project'])[0]
         
-        # GitHub URLs for the actual docs
-        github_urls = {
-            'project': 'https://raw.githubusercontent.com/bhuman-ai/gesture_generator/main/target-docs/project.md',
-            'technical': 'https://raw.githubusercontent.com/bhuman-ai/gesture_generator/main/target-docs/technical.md',
-            'interface': 'https://raw.githubusercontent.com/bhuman-ai/gesture_generator/main/target-docs/interface.md'
+        # GitHub API URLs for the actual docs
+        github_api_urls = {
+            'project': 'https://api.github.com/repos/bhuman-ai/gesture_generator/contents/target-docs/project.md',
+            'technical': 'https://api.github.com/repos/bhuman-ai/gesture_generator/contents/target-docs/technical.md',
+            'interface': 'https://api.github.com/repos/bhuman-ai/gesture_generator/contents/target-docs/interface.md'
         }
         
         content = "# Document Not Found\n\nRequested document not available."
         
-        if doc_name in github_urls:
+        if doc_name in github_api_urls:
             try:
-                # Use urllib with GitHub token for private repo access
                 import os
                 token = os.environ.get('GITHUB_TOKEN', '')
                 
-                req = urllib.request.Request(github_urls[doc_name])
+                req = urllib.request.Request(github_api_urls[doc_name])
+                req.add_header('Accept', 'application/vnd.github.v3.raw')
                 if token:
                     req.add_header('Authorization', f'token {token}')
                 
                 with urllib.request.urlopen(req) as response:
                     content = response.read().decode('utf-8')
             except Exception as e:
-                content = f"# Error Loading Document\n\nFailed to fetch from GitHub: {str(e)}"
+                content = f"# Error Loading Document\n\nFailed to fetch from GitHub API: {str(e)}\n\nMake sure GITHUB_TOKEN is set in Vercel environment variables."
         
         # Send response
         self.send_response(200)
