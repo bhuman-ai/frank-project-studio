@@ -479,12 +479,13 @@ def switch_project():
             print(f"Successfully cloned to {clone_dir}")
         else:
             print(f"Project already exists at {clone_dir}, pulling latest...")
-            # Pull latest changes
+            # Pull latest changes - use git config to avoid auth prompts
             subprocess.run(
                 ['git', 'pull'],
                 cwd=clone_dir,
                 capture_output=True,
-                timeout=30
+                timeout=None,
+                env={**os.environ, 'GIT_TERMINAL_PROMPT': '0', 'GIT_ASKPASS': 'echo'}
             )
         
         # Update project directory (use global to actually update the variables)

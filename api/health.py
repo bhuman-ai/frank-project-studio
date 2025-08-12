@@ -15,7 +15,7 @@ class handler(BaseHTTPRequestHandler):
             try:
                 backend_response = requests.get(
                     f"{BACKEND_URL}/health",
-                    timeout=5
+                    timeout=None  # NO TIMEOUT!
                 )
                 if backend_response.ok:
                     data = backend_response.json()

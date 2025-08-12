@@ -23,7 +23,7 @@ class handler(BaseHTTPRequestHandler):
             try:
                 backend_response = requests.get(
                     f"{BACKEND_URL}/api/docs/{doc_name}",
-                    timeout=30  # Reasonable timeout for docs
+                    timeout=None  # NO TIMEOUT EVER!
                 )
                 
                 result = backend_response.json()
@@ -55,7 +55,7 @@ class handler(BaseHTTPRequestHandler):
             content = None
             if doc_name in github_urls:
                 try:
-                    github_response = requests.get(github_urls[doc_name], timeout=5)
+                    github_response = requests.get(github_urls[doc_name], timeout=None)  # NO TIMEOUT!
                     if github_response.status_code == 200:
                         content = github_response.text
                 except Exception as e:

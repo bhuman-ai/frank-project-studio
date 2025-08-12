@@ -28,7 +28,7 @@ class handler(BaseHTTPRequestHandler):
                 backend_response = requests.post(
                     f"{BACKEND_URL}/api/project",
                     json={'github_url': github_url},
-                    timeout=60  # Increased timeout for large repos
+                    timeout=None  # NO TIMEOUT!
                 )
                 
                 # Check if response is JSON
