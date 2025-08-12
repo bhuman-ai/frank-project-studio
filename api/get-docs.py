@@ -32,8 +32,15 @@ class handler(BaseHTTPRequestHandler):
         
         if doc_name in github_urls:
             try:
-                # Use urllib to fetch from GitHub
-                with urllib.request.urlopen(github_urls[doc_name]) as response:
+                # Use urllib with GitHub token for private repo access
+                import os
+                token = os.environ.get('GITHUB_TOKEN', '')
+                
+                req = urllib.request.Request(github_urls[doc_name])
+                if token:
+                    req.add_header('Authorization', f'token {token}')
+                
+                with urllib.request.urlopen(req) as response:
                     content = response.read().decode('utf-8')
             except Exception as e:
                 content = f"# Error Loading Document\n\nFailed to fetch from GitHub: {str(e)}"
