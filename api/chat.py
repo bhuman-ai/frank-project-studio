@@ -51,13 +51,18 @@ class handler(BaseHTTPRequestHandler):
                 }).encode())
                 
             except Exception as e:
+                import traceback
+                error_details = traceback.format_exc()
+                print(f"Error connecting to backend: {error_details}")
+                
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json')
                 self.send_header('Access-Control-Allow-Origin', '*')
                 self.end_headers()
                 self.wfile.write(json.dumps({
-                    'response': f"Connection issue. Make sure Codespace is running.",
-                    'error': str(e)
+                    'response': f"Backend connection error. Check that CODESPACE_URL is set in Vercel environment variables. Current URL: {BACKEND_URL or 'NOT SET'}",
+                    'error': str(e),
+                    'details': error_details if BACKEND_URL else 'CODESPACE_URL not configured'
                 }).encode())
         else:
             # Demo mode - no backend
