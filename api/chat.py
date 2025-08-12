@@ -50,17 +50,22 @@ class handler(BaseHTTPRequestHandler):
                 
             except Exception as e:
                 import traceback
-                error_details = traceback.format_exc()
-                print(f"Error connecting to backend: {error_details}")
+                error_details = str(e)
+                
+                # Check if it's a connection error
+                if "urlopen error" in str(e) or "HTTP Error" in str(e):
+                    help_msg = "Make sure your Codespace port 8080 is set to PUBLIC visibility. In your Codespace, go to Ports tab and change 8080 visibility from Private to Public."
+                else:
+                    help_msg = "Check backend logs in your Codespace terminal."
                 
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json')
                 self.send_header('Access-Control-Allow-Origin', '*')
                 self.end_headers()
                 self.wfile.write(json.dumps({
-                    'response': f"Backend connection error. Check that CODESPACE_URL is set in Vercel environment variables. Current URL: {BACKEND_URL or 'NOT SET'}",
-                    'error': str(e),
-                    'details': error_details if BACKEND_URL else 'CODESPACE_URL not configured'
+                    'response': f"Cannot reach backend at {BACKEND_URL}. {help_msg}",
+                    'error': error_details,
+                    'help': help_msg
                 }).encode())
         else:
             # Demo mode - no backend
