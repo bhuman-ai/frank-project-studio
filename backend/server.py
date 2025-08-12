@@ -316,8 +316,9 @@ def switch_project():
     repo_name = url_parts[-1]
     user_name = url_parts[-2] if len(url_parts) > 1 else 'unknown'
     
-    # Clone location
-    clone_dir = f"/workspaces/{user_name}-{repo_name}"
+    # Clone location - use underscore to separate user and repo to avoid confusion
+    # since repo names can have underscores or hyphens
+    clone_dir = f"/workspaces/{user_name}_{repo_name}"
     
     try:
         # Check if already cloned
@@ -346,11 +347,42 @@ def switch_project():
                 except:
                     pass
             
-            # Clone with the best available method
-            if token:
+            # Always try gh CLI first since it handles auth better
+            use_gh_cli = subprocess.run(['which', 'gh'], capture_output=True).returncode == 0
+            
+            if use_gh_cli:
+                print("Using gh CLI for cloning...")
+                # Extract owner/repo from URL
+                repo_path = github_url.replace('https://github.com/', '').replace('.git', '').rstrip('/')
+                
+                # Use shallow clone with depth 1 for faster cloning
+                result = subprocess.run(
+                    ['gh', 'repo', 'clone', repo_path, clone_dir, '--', '--depth', '1', '--progress'],
+                    capture_output=True,
+                    text=True,
+                    timeout=300,  # Increased timeout to 5 minutes for large repos
+                    env=os.environ.copy()  # Pass full environment for gh auth
+                )
+                
+                if result.returncode != 0 and token:
+                    # Fallback to token auth if gh fails
+                    print(f"gh CLI failed, trying token authentication...")
+                    auth_url = github_url.replace('https://github.com/', f'https://{token}@github.com/')
+                    
+                    result = subprocess.run(
+                        ['git', 'clone', '--depth', '1', auth_url, clone_dir],
+                        capture_output=True,
+                        text=True,
+                        timeout=300,
+                        env={**os.environ, 'GIT_ASKPASS': 'echo', 'GIT_TERMINAL_PROMPT': '0'}
+                    )
+                    
+                    # Clean up token from error messages for security
+                    if result.stderr:
+                        result.stderr = result.stderr.replace(token, '***')
+            elif token:
                 # Use token authentication
                 print(f"Cloning with GitHub token authentication...")
-                # For private repos, use token in URL
                 auth_url = github_url.replace('https://github.com/', f'https://{token}@github.com/')
                 
                 result = subprocess.run(
@@ -365,29 +397,15 @@ def switch_project():
                 if result.stderr:
                     result.stderr = result.stderr.replace(token, '***')
             else:
-                # Try gh CLI as fallback
-                use_gh_cli = subprocess.run(['which', 'gh'], capture_output=True).returncode == 0
-                
-                if use_gh_cli:
-                    print("No token found, trying gh CLI...")
-                    repo_path = github_url.replace('https://github.com/', '').replace('.git', '').rstrip('/')
-                    
-                    result = subprocess.run(
-                        ['gh', 'repo', 'clone', repo_path, clone_dir],
-                        capture_output=True,
-                        text=True,
-                        timeout=60
-                    )
-                else:
-                    # Last resort - try without auth (only works for public repos)
-                    print("No authentication available, trying public clone...")
-                    result = subprocess.run(
-                        ['git', 'clone', github_url, clone_dir],
-                        capture_output=True,
-                        text=True,
-                        timeout=60,
-                        env={**os.environ, 'GIT_TERMINAL_PROMPT': '0'}
-                    )
+                # Last resort - try without auth (only works for public repos)
+                print("No authentication available, trying public clone...")
+                result = subprocess.run(
+                    ['git', 'clone', '--depth', '1', github_url, clone_dir],
+                    capture_output=True,
+                    text=True,
+                    timeout=300,
+                    env={**os.environ, 'GIT_TERMINAL_PROMPT': '0'}
+                )
             
             if result.returncode != 0:
                 return jsonify({
