@@ -480,13 +480,15 @@ def switch_project():
                 timeout=30
             )
         
-        # Update project directory
+        # Update project directory (use global to actually update the variables)
+        global PROJECT_DIR, BLUEPRINT_DIR
         PROJECT_DIR = clone_dir
         BLUEPRINT_DIR = os.path.join(PROJECT_DIR, 'target-docs')
         os.makedirs(BLUEPRINT_DIR, exist_ok=True)
         
         # Initialize blueprint docs for new project
         init_blueprint_docs()
+        print(f"Initialized blueprint docs in {BLUEPRINT_DIR}")
         
         # Count files
         file_count = 0
