@@ -31,7 +31,16 @@ class handler(BaseHTTPRequestHandler):
                     timeout=30
                 )
                 
-                result = backend_response.json()
+                # Check if response is JSON
+                try:
+                    result = backend_response.json()
+                except json.JSONDecodeError:
+                    # Backend returned non-JSON (probably HTML error page)
+                    result = {
+                        'success': False,
+                        'error': f'Backend error: {backend_response.status_code}',
+                        'details': backend_response.text[:200]
+                    }
                 
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json')
