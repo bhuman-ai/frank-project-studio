@@ -328,24 +328,25 @@ def switch_project():
             # First, always try to get GitHub token
             token = None
             
-            # Try different ways to get token
-            if 'GITHUB_TOKEN' in os.environ:
+            # In Codespaces, GITHUB_TOKEN is limited. Try gh CLI first.
+            # Try to get token from gh CLI
+            try:
+                gh_token_result = subprocess.run(
+                    ['gh', 'auth', 'token'],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                if gh_token_result.returncode == 0 and gh_token_result.stdout.strip():
+                    token = gh_token_result.stdout.strip()
+                    print("Got token from gh CLI")
+            except:
+                pass
+            
+            # Only use GITHUB_TOKEN as fallback (it has limited permissions in Codespaces)
+            if not token and 'GITHUB_TOKEN' in os.environ:
                 token = os.environ['GITHUB_TOKEN']
-                print("Using GITHUB_TOKEN from environment")
-            else:
-                # Try to get token from gh CLI
-                try:
-                    gh_token_result = subprocess.run(
-                        ['gh', 'auth', 'token'],
-                        capture_output=True,
-                        text=True,
-                        timeout=5
-                    )
-                    if gh_token_result.returncode == 0 and gh_token_result.stdout.strip():
-                        token = gh_token_result.stdout.strip()
-                        print("Got token from gh CLI")
-                except:
-                    pass
+                print("Using GITHUB_TOKEN from environment (limited permissions)")
             
             # Always try gh CLI first since it handles auth better
             use_gh_cli = subprocess.run(['which', 'gh'], capture_output=True).returncode == 0
@@ -380,13 +381,23 @@ def switch_project():
                 # Try with gh using SSH protocol (often works better in Codespaces)
                 print(f"Attempting to clone {repo_path} with gh CLI...")
                 
+                # In Codespaces, we need to unset GITHUB_TOKEN for gh CLI to work properly
+                # because the Codespace token has limited permissions
+                gh_env = os.environ.copy()
+                if 'GITHUB_TOKEN' in gh_env:
+                    # Save the token for later use if needed
+                    codespace_token = gh_env['GITHUB_TOKEN']
+                    # Remove it so gh CLI uses its own auth
+                    del gh_env['GITHUB_TOKEN']
+                    print("Removed GITHUB_TOKEN from environment for gh CLI")
+                
                 # First try with SSH
                 result = subprocess.run(
                     ['gh', 'repo', 'clone', repo_path, clone_dir, '--', '--depth', '1'],
                     capture_output=True,
                     text=True,
                     timeout=300,
-                    env={**os.environ, 'GIT_PROTOCOL': 'ssh'}
+                    env={**gh_env, 'GIT_PROTOCOL': 'ssh'}
                 )
                 
                 # If SSH fails, try HTTPS
@@ -397,7 +408,7 @@ def switch_project():
                         capture_output=True,
                         text=True,
                         timeout=300,  # Increased timeout to 5 minutes for large repos
-                        env=os.environ.copy()  # Pass full environment for gh auth
+                        env=gh_env  # Use environment without GITHUB_TOKEN
                     )
                 
                 if result.returncode != 0 and token:
