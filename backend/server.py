@@ -324,13 +324,27 @@ def switch_project():
         if not os.path.exists(clone_dir):
             print(f"Cloning {github_url} to {clone_dir}...")
             
-            # Clone the repo
-            result = subprocess.run(
-                ['git', 'clone', github_url, clone_dir],
-                capture_output=True,
-                text=True,
-                timeout=60
-            )
+            # Use GitHub CLI if available for better auth
+            use_gh_cli = subprocess.run(['which', 'gh'], capture_output=True).returncode == 0
+            
+            if use_gh_cli:
+                # Use gh CLI which handles auth automatically in Codespace
+                result = subprocess.run(
+                    ['gh', 'repo', 'clone', github_url.replace('https://github.com/', ''), clone_dir],
+                    capture_output=True,
+                    text=True,
+                    timeout=60
+                )
+            else:
+                # Fallback to git clone
+                # In Codespace, this should use the GITHUB_TOKEN automatically
+                result = subprocess.run(
+                    ['git', 'clone', github_url, clone_dir],
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                    env={**os.environ, 'GIT_TERMINAL_PROMPT': '0'}  # Don't prompt for password
+                )
             
             if result.returncode != 0:
                 return jsonify({
