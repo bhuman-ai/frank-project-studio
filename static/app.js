@@ -289,35 +289,29 @@ class FrankStudio {
         docTitle.textContent = docName + '.md';
 
         try {
-            // Use get-docs endpoint
-            const response = await fetch('/api/get-docs?doc=' + docName);
+            // DIRECT FROM GITHUB - NO API NEEDED
+            const githubUrls = {
+                'project': 'https://raw.githubusercontent.com/bhuman-ai/gesture_generator/main/target-docs/project.md',
+                'technical': 'https://raw.githubusercontent.com/bhuman-ai/gesture_generator/main/target-docs/technical.md',
+                'interface': 'https://raw.githubusercontent.com/bhuman-ai/gesture_generator/main/target-docs/interface.md'
+            };
+            
+            const url = githubUrls[docName] || githubUrls['project'];
+            const response = await fetch(url);
             
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             
-            const data = await response.json();
-
-            if (data.content) {
-                docContent.textContent = data.content;
-                docLines.textContent = data.lines + ' lines';
-
-                // Add update indicator if not demo
-                if (!data.demo) {
-                    const existingPulse = docLines.querySelector('.update-pulse');
-                    if (!existingPulse) {
-                        const pulse = document.createElement('span');
-                        pulse.className = 'update-pulse';
-                        docLines.appendChild(pulse);
-                        setTimeout(() => pulse.remove(), 3000);
-                    }
-                }
-            } else if (data.error) {
-                docContent.textContent = 'Error loading document: ' + data.error;
-            }
+            const content = await response.text();
+            
+            // Display the content
+            docContent.textContent = content;
+            docLines.textContent = content.split('\n').length + ' lines';
+            
         } catch (error) {
             console.error('Load doc error:', error);
-            docContent.textContent = `# ${docName}.md\n\nConnect backend to see live documents.`;
+            docContent.textContent = `# ${docName}.md\n\nError loading from GitHub: ${error.message}`;
         }
     }
 
