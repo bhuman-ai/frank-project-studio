@@ -45,49 +45,30 @@ class handler(BaseHTTPRequestHandler):
                     'error': str(e)
                 }).encode())
         else:
-            # Demo content
-            demo_content = {
-                'project.md': """# Project Blueprint
-
-## Vision
-*Connect your GitHub Codespace to start building your project blueprint.*
-
-## Features
-- Real-time document updates
-- Natural conversation with Frank
-- Mobile-friendly interface
-
-## Setup
-1. Run backend in GitHub Codespace
-2. Set CODESPACE_URL in Vercel
-3. Start chatting with Frank!""",
-                
-                'technical.md': """# Technical Blueprint
-
-## Architecture
-- Frontend: Vercel (this app)
-- Backend: GitHub Codespace
-- AI: Claude CLI
-
-## Stack
-- HTML/CSS/JavaScript
-- Python Flask backend
-- Vercel serverless functions""",
-                
-                'interface.md': """# Interface Blueprint
-
-## Design
-- Mobile-first responsive design
-- Real-time chat interface
-- Live document viewer
-
-## Features
-- Swipe between chat and docs
-- Auto-updating blueprints
-- Persistent sessions"""
+            # Fetch from GitHub directly
+            github_urls = {
+                'project.md': 'https://raw.githubusercontent.com/bhuman-ai/gesture_generator/main/target-docs/project.md',
+                'technical.md': 'https://raw.githubusercontent.com/bhuman-ai/gesture_generator/main/target-docs/technical.md',
+                'interface.md': 'https://raw.githubusercontent.com/bhuman-ai/gesture_generator/main/target-docs/interface.md'
             }
             
-            content = demo_content.get(doc_name, f"# {doc_name}\n\nDocument will be created as you chat.")
+            content = None
+            if doc_name in github_urls:
+                try:
+                    github_response = requests.get(github_urls[doc_name], timeout=5)
+                    if github_response.status_code == 200:
+                        content = github_response.text
+                except Exception as e:
+                    content = f"# {doc_name}\n\nError loading from GitHub: {str(e)}"
+            
+            if not content:
+                # Fallback demo content
+                demo_content = {
+                    'project.md': "# Project Blueprint\n\n*Loading from GitHub...*",
+                    'technical.md': "# Technical Blueprint\n\n*Loading from GitHub...*",
+                    'interface.md': "# Interface Blueprint\n\n*Loading from GitHub...*"
+                }
+                content = demo_content.get(doc_name, f"# {doc_name}\n\nDocument not found.")
             
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
