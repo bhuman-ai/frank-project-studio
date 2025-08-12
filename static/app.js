@@ -289,8 +289,8 @@ class FrankStudio {
         docTitle.textContent = docName + '.md';
 
         try {
-            // TEMPORARY: Use simple endpoint until we fix the main one
-            const response = await fetch('/api/simple?doc=' + docName);
+            // Use get-docs endpoint
+            const response = await fetch('/api/get-docs?doc=' + docName);
             
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
