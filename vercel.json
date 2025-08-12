@@ -27,10 +27,5 @@
       "src": "/(.*)",
       "dest": "/index.html"
     }
-  ],
-  "functions": {
-    "api/*.py": {
-      "maxDuration": 30
-    }
-  }
+  ]
 }
