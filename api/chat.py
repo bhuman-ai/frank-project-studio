@@ -29,7 +29,7 @@ class handler(BaseHTTPRequestHandler):
                 backend_response = requests.post(
                     f"{BACKEND_URL}/api/message",
                     json={'message': message, 'context': context},
-                    timeout=30
+                    timeout=None  # NO TIMEOUT - Let Claude think as long as needed!
                 )
                 
                 result = backend_response.json()

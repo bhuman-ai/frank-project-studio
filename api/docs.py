@@ -23,7 +23,7 @@ class handler(BaseHTTPRequestHandler):
             try:
                 backend_response = requests.get(
                     f"{BACKEND_URL}/api/docs/{doc_name}",
-                    timeout=10
+                    timeout=30  # Reasonable timeout for docs
                 )
                 
                 result = backend_response.json()
