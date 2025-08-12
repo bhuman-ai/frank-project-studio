@@ -289,9 +289,8 @@ class FrankStudio {
         docTitle.textContent = docName + '.md';
 
         try {
-            // Make sure we always add .md extension
-            const docFile = docName.endsWith('.md') ? docName : docName + '.md';
-            const response = await fetch('/api/docs/' + docFile);
+            // TEMPORARY: Use simple endpoint until we fix the main one
+            const response = await fetch('/api/simple?doc=' + docName);
             
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
