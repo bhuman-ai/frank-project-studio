@@ -17,8 +17,18 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app, origins=["*"])  # Allow all origins for Codespace
 
-# Configuration
-PROJECT_DIR = os.environ.get('PROJECT_DIR', os.getcwd())
+# Configuration - Support multiple projects
+DEFAULT_PROJECT = os.environ.get('PROJECT_DIR', '/workspaces/AI-Video-Studio')
+# Try common project locations
+if not os.path.exists(DEFAULT_PROJECT):
+    if os.path.exists('/workspaces/AI-Video-Studio'):
+        DEFAULT_PROJECT = '/workspaces/AI-Video-Studio'
+    elif os.path.exists('/Users/don/AI Video Studio'):
+        DEFAULT_PROJECT = '/Users/don/AI Video Studio'
+    else:
+        DEFAULT_PROJECT = os.getcwd()
+
+PROJECT_DIR = DEFAULT_PROJECT
 BLUEPRINT_DIR = os.path.join(PROJECT_DIR, 'target-docs')
 
 # Ensure directories exist
@@ -284,6 +294,93 @@ def get_document(doc_name):
             'error': str(e),
             'content': f"# {doc_name}\n\nError loading document.",
             'lines': 2
+        })
+
+@app.route('/api/project', methods=['POST', 'OPTIONS'])
+def switch_project():
+    """Clone/switch to a different GitHub project"""
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    global PROJECT_DIR, BLUEPRINT_DIR
+    
+    data = request.json
+    github_url = data.get('github_url', '')
+    
+    if not github_url:
+        return jsonify({'success': False, 'error': 'No GitHub URL provided'})
+    
+    # Extract repo info from URL
+    # Handle formats: https://github.com/user/repo or https://github.com/user/repo.git
+    url_parts = github_url.replace('.git', '').rstrip('/').split('/')
+    repo_name = url_parts[-1]
+    user_name = url_parts[-2] if len(url_parts) > 1 else 'unknown'
+    
+    # Clone location
+    clone_dir = f"/workspaces/{user_name}-{repo_name}"
+    
+    try:
+        # Check if already cloned
+        if not os.path.exists(clone_dir):
+            print(f"Cloning {github_url} to {clone_dir}...")
+            
+            # Clone the repo
+            result = subprocess.run(
+                ['git', 'clone', github_url, clone_dir],
+                capture_output=True,
+                text=True,
+                timeout=60
+            )
+            
+            if result.returncode != 0:
+                return jsonify({
+                    'success': False,
+                    'error': f"Clone failed: {result.stderr}"
+                })
+            
+            print(f"Successfully cloned to {clone_dir}")
+        else:
+            print(f"Project already exists at {clone_dir}, pulling latest...")
+            # Pull latest changes
+            subprocess.run(
+                ['git', 'pull'],
+                cwd=clone_dir,
+                capture_output=True,
+                timeout=30
+            )
+        
+        # Update project directory
+        PROJECT_DIR = clone_dir
+        BLUEPRINT_DIR = os.path.join(PROJECT_DIR, 'target-docs')
+        os.makedirs(BLUEPRINT_DIR, exist_ok=True)
+        
+        # Initialize blueprint docs for new project
+        init_blueprint_docs()
+        
+        # Count files
+        file_count = 0
+        for root, dirs, files in os.walk(PROJECT_DIR):
+            dirs[:] = [d for d in dirs if not d.startswith('.') and d != 'node_modules']
+            file_count += len(files)
+        
+        return jsonify({
+            'success': True,
+            'name': f"{user_name}/{repo_name}",
+            'path': clone_dir,
+            'file_count': file_count,
+            'status': 'Ready to build',
+            'blueprint_dir': BLUEPRINT_DIR
+        })
+        
+    except subprocess.TimeoutExpired:
+        return jsonify({
+            'success': False,
+            'error': 'Clone timeout - repository may be too large'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
         })
 
 @app.route('/api/analyze')

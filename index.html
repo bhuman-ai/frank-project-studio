@@ -13,7 +13,15 @@
         <!-- Header -->
         <header class="header">
             <h1>🎩 Frank Project Studio</h1>
-            <div class="status" id="status">Connecting...</div>
+            <div class="project-selector">
+                <select id="projectDropdown" class="project-dropdown">
+                    <option value="">Select a project...</option>
+                    <option value="new">+ Add GitHub Project</option>
+                </select>
+                <input type="text" id="projectUrl" class="project-input hidden" placeholder="https://github.com/user/repo">
+                <button id="addProjectBtn" class="add-btn hidden">Add</button>
+            </div>
+            <div class="status" id="status">Select a project to start</div>
         </header>
 
         <!-- Mobile Tabs -->

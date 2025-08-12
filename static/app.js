@@ -3,21 +3,75 @@
 class FrankStudio {
     constructor() {
         this.currentDoc = 'project';
+        this.currentProject = null;
         this.messageContext = '';
         this.isConnected = false;
+        this.projects = JSON.parse(localStorage.getItem('frankProjects') || '[]');
         this.init();
     }
 
     init() {
         this.setupEventListeners();
-        this.checkConnection();
-        this.loadDoc(this.currentDoc);
+        this.loadProjects();
         
+        // Don't auto-connect until project selected
         // Auto-refresh docs every 10 seconds
-        setInterval(() => this.loadDoc(this.currentDoc), 10000);
+        setInterval(() => {
+            if (this.currentProject) {
+                this.loadDoc(this.currentDoc);
+            }
+        }, 10000);
+    }
+
+    loadProjects() {
+        const dropdown = document.getElementById('projectDropdown');
+        
+        // Clear existing options except first two
+        while (dropdown.options.length > 2) {
+            dropdown.remove(2);
+        }
+        
+        // Add saved projects
+        this.projects.forEach(project => {
+            const option = document.createElement('option');
+            option.value = project.url;
+            option.textContent = project.name;
+            dropdown.appendChild(option);
+        });
+        
+        // Restore last selected project
+        const lastProject = localStorage.getItem('lastProject');
+        if (lastProject) {
+            dropdown.value = lastProject;
+            this.selectProject(lastProject);
+        }
     }
 
     setupEventListeners() {
+        // Project selector
+        const dropdown = document.getElementById('projectDropdown');
+        const urlInput = document.getElementById('projectUrl');
+        const addBtn = document.getElementById('addProjectBtn');
+        
+        dropdown.addEventListener('change', (e) => {
+            if (e.target.value === 'new') {
+                // Show input field
+                urlInput.classList.remove('hidden');
+                addBtn.classList.remove('hidden');
+                urlInput.focus();
+            } else if (e.target.value) {
+                // Select existing project
+                urlInput.classList.add('hidden');
+                addBtn.classList.add('hidden');
+                this.selectProject(e.target.value);
+            }
+        });
+        
+        addBtn.addEventListener('click', () => this.addProject());
+        urlInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.addProject();
+        });
+        
         // Chat form
         document.getElementById('chatForm').addEventListener('submit', (e) => {
             e.preventDefault();
@@ -47,6 +101,82 @@ class FrankStudio {
                 input.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }, 300);
         });
+    }
+    
+    async addProject() {
+        const urlInput = document.getElementById('projectUrl');
+        const url = urlInput.value.trim();
+        
+        if (!url || !url.includes('github.com')) {
+            alert('Please enter a valid GitHub URL');
+            return;
+        }
+        
+        // Extract repo name
+        const parts = url.split('/');
+        const repoName = parts[parts.length - 1].replace('.git', '');
+        const userName = parts[parts.length - 2];
+        
+        const project = {
+            url: url,
+            name: `${userName}/${repoName}`,
+            added: new Date().toISOString()
+        };
+        
+        // Save to localStorage
+        this.projects.push(project);
+        localStorage.setItem('frankProjects', JSON.stringify(this.projects));
+        
+        // Add to dropdown
+        const dropdown = document.getElementById('projectDropdown');
+        const option = document.createElement('option');
+        option.value = url;
+        option.textContent = project.name;
+        dropdown.appendChild(option);
+        
+        // Select it
+        dropdown.value = url;
+        urlInput.value = '';
+        urlInput.classList.add('hidden');
+        document.getElementById('addProjectBtn').classList.add('hidden');
+        
+        // Initialize project
+        this.selectProject(url);
+    }
+    
+    async selectProject(url) {
+        this.currentProject = url;
+        localStorage.setItem('lastProject', url);
+        
+        const status = document.getElementById('status');
+        status.textContent = 'Initializing project...';
+        
+        try {
+            // Tell backend to switch/clone project
+            const response = await fetch('/api/project', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ github_url: url })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                status.textContent = `${data.file_count} files | ${data.status}`;
+                this.isConnected = true;
+                this.checkConnection();
+                this.loadDoc(this.currentDoc);
+                
+                // Show initial message
+                this.addMessage(`Project loaded: ${data.name}. ${data.file_count} files analyzed. Let's build something great!`, 'system');
+            } else {
+                status.textContent = 'Failed to load project';
+                this.addMessage('Error: ' + data.error, 'system');
+            }
+        } catch (error) {
+            console.error('Project selection error:', error);
+            status.textContent = 'Error loading project';
+        }
     }
 
     switchTab(tabName) {
