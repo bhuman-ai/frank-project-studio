@@ -160,19 +160,26 @@ class FrankStudio {
 
         try {
             const response = await fetch('/api/docs/' + docName);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
             const data = await response.json();
 
             if (data.content) {
                 docContent.textContent = data.content;
                 docLines.textContent = data.lines + ' lines';
 
-                // Add update indicator
-                const existingPulse = docLines.querySelector('.update-pulse');
-                if (!existingPulse) {
-                    const pulse = document.createElement('span');
-                    pulse.className = 'update-pulse';
-                    docLines.appendChild(pulse);
-                    setTimeout(() => pulse.remove(), 3000);
+                // Add update indicator if not demo
+                if (!data.demo) {
+                    const existingPulse = docLines.querySelector('.update-pulse');
+                    if (!existingPulse) {
+                        const pulse = document.createElement('span');
+                        pulse.className = 'update-pulse';
+                        docLines.appendChild(pulse);
+                        setTimeout(() => pulse.remove(), 3000);
+                    }
                 }
             } else if (data.error) {
                 docContent.textContent = 'Error loading document: ' + data.error;
