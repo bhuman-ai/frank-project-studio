@@ -355,14 +355,50 @@ def switch_project():
                 # Extract owner/repo from URL
                 repo_path = github_url.replace('https://github.com/', '').replace('.git', '').rstrip('/')
                 
-                # Use shallow clone with depth 1 for faster cloning
-                result = subprocess.run(
-                    ['gh', 'repo', 'clone', repo_path, clone_dir, '--', '--depth', '1', '--progress'],
+                # First check if gh is authenticated
+                auth_check = subprocess.run(
+                    ['gh', 'auth', 'status'],
                     capture_output=True,
                     text=True,
-                    timeout=300,  # Increased timeout to 5 minutes for large repos
-                    env=os.environ.copy()  # Pass full environment for gh auth
+                    timeout=5
                 )
+                
+                if auth_check.returncode != 0:
+                    print("gh CLI not authenticated, trying to login...")
+                    # Try to authenticate gh with existing token if available
+                    if token:
+                        subprocess.run(
+                            ['gh', 'auth', 'login', '--with-token'],
+                            input=token,
+                            text=True,
+                            capture_output=True,
+                            timeout=5
+                        )
+                else:
+                    print(f"gh auth status: {auth_check.stdout[:100]}")
+                
+                # Try with gh using SSH protocol (often works better in Codespaces)
+                print(f"Attempting to clone {repo_path} with gh CLI...")
+                
+                # First try with SSH
+                result = subprocess.run(
+                    ['gh', 'repo', 'clone', repo_path, clone_dir, '--', '--depth', '1'],
+                    capture_output=True,
+                    text=True,
+                    timeout=300,
+                    env={**os.environ, 'GIT_PROTOCOL': 'ssh'}
+                )
+                
+                # If SSH fails, try HTTPS
+                if result.returncode != 0:
+                    print("SSH clone failed, trying HTTPS...")
+                    result = subprocess.run(
+                        ['gh', 'repo', 'clone', repo_path, clone_dir, '--', '--depth', '1', '--progress'],
+                        capture_output=True,
+                        text=True,
+                        timeout=300,  # Increased timeout to 5 minutes for large repos
+                        env=os.environ.copy()  # Pass full environment for gh auth
+                    )
                 
                 if result.returncode != 0 and token:
                     # Fallback to token auth if gh fails
@@ -408,9 +444,18 @@ def switch_project():
                 )
             
             if result.returncode != 0:
+                error_msg = result.stderr or result.stdout or "Unknown error"
+                print(f"Clone error: {error_msg}")
+                
+                # Provide helpful error message for common issues
+                if '403' in error_msg or 'not granted' in error_msg:
+                    error_msg += "\n\nTo fix this in your Codespace:\n1. Run: gh auth login\n2. Choose GitHub.com\n3. Select HTTPS\n4. Authenticate with browser\n5. Try adding the project again"
+                elif '404' in error_msg or 'not found' in error_msg:
+                    error_msg += "\n\nMake sure the repository URL is correct and you have access to it."
+                
                 return jsonify({
                     'success': False,
-                    'error': f"Clone failed: {result.stderr}"
+                    'error': f"Clone failed: {error_msg}"
                 })
             
             print(f"Successfully cloned to {clone_dir}")
