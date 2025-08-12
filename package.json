@@ -1,0 +1,16 @@
+{
+  "name": "frank-project-studio",
+  "version": "1.0.0",
+  "description": "Talk to Uncle Frank about your project from anywhere",
+  "author": "Uncle Frank",
+  "license": "MIT",
+  "scripts": {
+    "dev": "python3 backend/server.py",
+    "build": "echo 'No build needed'",
+    "deploy": "vercel --prod"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "vercel": "^32.0.0"
+  }
+}

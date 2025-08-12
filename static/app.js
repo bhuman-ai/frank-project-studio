@@ -1,0 +1,223 @@
+// Frank Project Studio - Client App
+
+class FrankStudio {
+    constructor() {
+        this.currentDoc = 'project';
+        this.messageContext = '';
+        this.isConnected = false;
+        this.init();
+    }
+
+    init() {
+        this.setupEventListeners();
+        this.checkConnection();
+        this.loadDoc(this.currentDoc);
+        
+        // Auto-refresh docs every 10 seconds
+        setInterval(() => this.loadDoc(this.currentDoc), 10000);
+    }
+
+    setupEventListeners() {
+        // Chat form
+        document.getElementById('chatForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.sendMessage();
+        });
+
+        // Mobile tabs
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                const tabName = e.target.dataset.tab;
+                this.switchTab(tabName);
+            });
+        });
+
+        // Doc tabs
+        document.querySelectorAll('.doc-tab').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                const docName = e.target.dataset.doc;
+                this.switchDoc(docName);
+            });
+        });
+
+        // Handle mobile keyboard
+        const input = document.getElementById('messageInput');
+        input.addEventListener('focus', () => {
+            setTimeout(() => {
+                input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 300);
+        });
+    }
+
+    switchTab(tabName) {
+        // Update tab buttons
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        event.target.classList.add('active');
+
+        // Update panels
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        document.getElementById(tabName + 'Panel').classList.add('active');
+
+        // Load docs if switching to docs tab
+        if (tabName === 'docs') {
+            this.loadDoc(this.currentDoc);
+        }
+    }
+
+    switchDoc(docName) {
+        // Update doc tabs
+        document.querySelectorAll('.doc-tab').forEach(t => t.classList.remove('active'));
+        event.target.classList.add('active');
+
+        // Load new doc
+        this.currentDoc = docName;
+        this.loadDoc(docName);
+    }
+
+    async sendMessage() {
+        const input = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const message = input.value.trim();
+
+        if (!message) return;
+
+        // Add user message
+        this.addMessage(message, 'user');
+        input.value = '';
+
+        // Disable input
+        input.disabled = true;
+        sendBtn.disabled = true;
+
+        // Show thinking
+        const thinkingId = 'think-' + Date.now();
+        this.addMessage('<span class="loading"></span>Frank is thinking...', 'system', thinkingId);
+
+        try {
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message: message,
+                    context: this.messageContext
+                })
+            });
+
+            const data = await response.json();
+
+            // Remove thinking
+            document.getElementById(thinkingId)?.remove();
+
+            if (data.response) {
+                this.addMessage(data.response, 'frank');
+
+                // Update context
+                this.messageContext += '\nUser: ' + message + '\nFrank: ' + data.response.substring(0, 200);
+                if (this.messageContext.length > 2000) {
+                    this.messageContext = this.messageContext.substring(this.messageContext.length - 2000);
+                }
+
+                // Check for doc updates
+                if (data.doc_updates) {
+                    this.showStatus('📝 Updating documents...');
+                    setTimeout(() => this.loadDoc(this.currentDoc), 2000);
+                }
+            } else if (data.error) {
+                this.addMessage('Error: ' + data.error, 'system');
+            }
+
+        } catch (error) {
+            document.getElementById(thinkingId)?.remove();
+            console.error('Send message error:', error);
+            this.addMessage('Connection error. Make sure backend is running.', 'system');
+        } finally {
+            input.disabled = false;
+            sendBtn.disabled = false;
+            input.focus();
+        }
+    }
+
+    addMessage(text, type, id = null) {
+        const messages = document.getElementById('messages');
+        const message = document.createElement('div');
+        message.className = 'message ' + type;
+        message.innerHTML = text;
+        if (id) message.id = id;
+        messages.appendChild(message);
+
+        // Smooth scroll
+        setTimeout(() => {
+            messages.scrollTop = messages.scrollHeight;
+        }, 100);
+    }
+
+    async loadDoc(docName) {
+        const docTitle = document.getElementById('docTitle');
+        const docLines = document.getElementById('docLines');
+        const docContent = document.getElementById('docContent');
+
+        docTitle.textContent = docName + '.md';
+
+        try {
+            const response = await fetch('/api/docs/' + docName);
+            const data = await response.json();
+
+            if (data.content) {
+                docContent.textContent = data.content;
+                docLines.textContent = data.lines + ' lines';
+
+                // Add update indicator
+                const existingPulse = docLines.querySelector('.update-pulse');
+                if (!existingPulse) {
+                    const pulse = document.createElement('span');
+                    pulse.className = 'update-pulse';
+                    docLines.appendChild(pulse);
+                    setTimeout(() => pulse.remove(), 3000);
+                }
+            } else if (data.error) {
+                docContent.textContent = 'Error loading document: ' + data.error;
+            }
+        } catch (error) {
+            console.error('Load doc error:', error);
+            docContent.textContent = `# ${docName}.md\n\nConnect backend to see live documents.`;
+        }
+    }
+
+    async checkConnection() {
+        const status = document.getElementById('status');
+
+        try {
+            const response = await fetch('/api/health');
+            
+            if (response.ok) {
+                const data = await response.json();
+                this.isConnected = true;
+                status.textContent = data.status || 'Connected to Frank';
+                this.showStatus('✅ Connected to backend');
+            } else {
+                this.isConnected = false;
+                status.textContent = 'Backend offline';
+                this.showStatus('⚠️ Backend not connected');
+            }
+        } catch (error) {
+            this.isConnected = false;
+            status.textContent = 'Connect your Codespace';
+            console.log('Backend not connected - this is normal if running frontend only');
+        }
+    }
+
+    showStatus(message) {
+        const status = document.getElementById('connectionStatus');
+        status.textContent = message;
+        status.classList.add('show');
+
+        setTimeout(() => {
+            status.classList.remove('show');
+        }, 3000);
+    }
+}
+
+// Initialize app when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    window.frankStudio = new FrankStudio();
+});

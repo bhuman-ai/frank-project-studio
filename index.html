@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="Talk to Uncle Frank about your project - AI-powered project advisor">
+    <meta name="theme-color" content="#667eea">
+    <title>Frank Project Studio</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <h1>🎩 Frank Project Studio</h1>
+            <div class="status" id="status">Connecting...</div>
+        </header>
+
+        <!-- Mobile Tabs -->
+        <nav class="tabs mobile-only">
+            <button class="tab active" data-tab="chat">💬 Chat</button>
+            <button class="tab" data-tab="docs">📄 Docs</button>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="content">
+            <!-- Chat Panel -->
+            <section class="panel chat active" id="chatPanel">
+                <div class="messages" id="messages">
+                    <div class="message system">
+                        <strong>Welcome to Frank Project Studio!</strong><br>
+                        I'm Uncle Frank. Tell me about your project and I'll help you build something great.
+                    </div>
+                </div>
+                
+                <form class="input-section" id="chatForm">
+                    <input 
+                        type="text" 
+                        id="messageInput" 
+                        placeholder="Talk to Frank..."
+                        autocomplete="off"
+                        autocorrect="off"
+                        autocapitalize="off"
+                        spellcheck="false"
+                        required
+                    >
+                    <button type="submit" id="sendBtn">Send</button>
+                </form>
+            </section>
+
+            <!-- Docs Panel -->
+            <section class="panel docs" id="docsPanel">
+                <nav class="doc-tabs">
+                    <button class="doc-tab active" data-doc="project">Project</button>
+                    <button class="doc-tab" data-doc="technical">Technical</button>
+                    <button class="doc-tab" data-doc="interface">Interface</button>
+                </nav>
+                
+                <div class="doc-viewer">
+                    <div class="doc-header">
+                        <span id="docTitle">project.md</span>
+                        <span id="docLines">0 lines</span>
+                    </div>
+                    <pre class="doc-content" id="docContent">Loading...</pre>
+                </div>
+            </section>
+        </main>
+
+        <!-- Connection Status -->
+        <div class="connection-status" id="connectionStatus"></div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
